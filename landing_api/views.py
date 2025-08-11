@@ -4,21 +4,20 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from firebase_admin import db
-# ¡Añadimos el import para datetime que ahora sí necesitamos!
 from datetime import datetime
 
 class LandingAPI(APIView):
     """
-    Vista para realizar operaciones CRUD en la colección de leads de la landing page
-    en Firebase Realtime Database.
+    Vista para interactuar con los datos de productos en Firebase Realtime Database.
     """
-    
+
     name = "Landing API"
-    collection_name = "landing_leads" # Nombre del nodo en Firebase
-    
+    collection_name = "productosmasvistos" # Correcto, apunta a tu nodo
+
     def get(self, request, format=None):
         """
-        Obtiene todos los elementos de la colección desde Firebase Realtime Database.
+        Obtiene los productos y sus contadores desde Firebase,
+        formateándolos en una lista de objetos.
         """
         try:
             ref = db.reference(f'/{self.collection_name}')
@@ -27,51 +26,44 @@ class LandingAPI(APIView):
             if not data:
                 return Response([], status=status.HTTP_200_OK)
 
-            if isinstance(data, dict):
-                data = list(data.values())
-                
-            return Response(data, status=status.HTTP_200_OK)
+            # --- LÓGICA CORREGIDA ---
+            # Vamos a transformar el diccionario de Firebase en una lista de diccionarios más útil
+
+            processed_data = []
+            for key, value in data.items():
+                # Solo procesamos las entradas que tienen la estructura de un producto con contador
+                # Esto ignora la entrada antigua con el ID '-OWGc...'
+                if isinstance(value, dict) and 'count' in value:
+                    processed_data.append({
+                        'product_name': key,      # La clave es el nombre del producto
+                        'view_count': value['count'] # El valor del contador
+                    })
+
+            # Opcional: Ordenar la lista de más a menos vistos
+            processed_data.sort(key=lambda x: x['view_count'], reverse=True)
+
+            return Response(processed_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response(
-                {'error': f'Ocurrió un error al obtener los datos de Firebase: {e}'}, 
+                {'error': f'Ocurrió un error al obtener los datos de Firebase: {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    # === MÉTODO POST AÑADIDO ===
+    # Tu método POST puede quedar como está, aunque ahora mismo está diseñado
+    # para guardar leads y no para actualizar contadores de productos.
+    # Si quieres mantenerlo, no hay problema.
     def post(self, request, format=None):
-        """
-        Crea un nuevo lead en Firebase Realtime Database.
-        """
-        # Obtenemos los datos del cuerpo de la solicitud
+        # ... (tu código post actual) ...
         data = request.data
-
-        # Validación mínima para asegurar que se envíen datos
         if not data:
-            return Response(
-                {'error': 'No se recibieron datos en la solicitud.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+            return Response({'error': 'No se recibieron datos en la solicitud.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            # Obtenemos la referencia a la colección en Firebase
             ref = db.reference(f'/{self.collection_name}')
-
-            # Generamos y formateamos la fecha y hora actual
             current_time  = datetime.now()
             custom_format = current_time.strftime("%d/%m/%Y, %I:%M:%S %p").lower().replace('am', 'a. m.').replace('pm', 'p. m.')
-            
-            # Añadimos el timestamp a los datos recibidos
             data['timestamp'] = custom_format
-
-            # Usamos push para guardar el objeto en la colección (Firebase genera un ID único)
             new_resource = ref.push(data)
-
-            # Devolvemos el ID único generado por Firebase (la "key")
             return Response({'id': new_resource.key}, status=status.HTTP_201_CREATED)
-
         except Exception as e:
-            return Response(
-                {'error': f'Ocurrió un error al guardar los datos en Firebase: {e}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'error': f'Ocurrió un error al guardar los datos en Firebase: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

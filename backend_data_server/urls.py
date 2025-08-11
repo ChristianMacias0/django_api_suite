@@ -1,28 +1,18 @@
-"""
-URL configuration for backend_data_server project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 # Archivo: backend_data_server/urls.py
-
 from django.contrib import admin
-# ¡Asegúrate de que 'include' esté importado!
 from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Incluye las URLs de la homepage.
+    path('homepage/', include('homepage.urls')),
+
+    # Incluye las URLs de autenticación de DRF.
+    # Esto es NECESARIO para que la plantilla de DRF funcione.
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+
+    # Finalmente, incluye las URLs de tu API principal.
+    # Esta debe ser la última para que no interfiera con otras rutas.
     path('', include('landing_api.urls')),
-    path('api/', include('demo_rest_api.urls')),
-    path('landing/api/', include('landing_api.urls')),
 ]
